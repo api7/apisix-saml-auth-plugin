@@ -2,10 +2,7 @@
 
 set -exuo pipefail
 
-VAR_CUR_PATH="$(cd $(dirname ${0}); pwd)"
 VAR_CUR_HOME="$(cd $(dirname ${0})/../..; pwd)"
-
-source "${VAR_CUR_PATH}/linux-common.sh"
 
 # =======================================
 # Linux common config
@@ -19,7 +16,7 @@ export_or_prefix() {
 get_apisix_code() {
     # ${1} branch name
     # ${2} checkout path
-    git_branch=${1:-release/2.12}
+    git_branch=${1:-master}
     git_checkout_path=${2:-workbench}
     git clone --depth 1 --recursive https://github.com/apache/apisix.git \
         -b "${git_branch}" "${git_checkout_path}" && cd "${git_checkout_path}" || exit 1
@@ -30,9 +27,7 @@ patch_apisix_code(){
     # ${1} apisix home dir
     VAR_APISIX_HOME="${VAR_CUR_HOME}/${1:-workbench}"
 
-    sed -ri -e "/make\s+ci-env-up/d" \
-      -e "/linux-ci-init-service.sh/d" \
-      "${VAR_APISIX_HOME}/ci/linux_openresty_common_runner.sh"
+    (cd $VAR_APISIX_HOME; patch -p1 < $VAR_CUR_HOME/ci/saml-auth.patch)
 }
 
 
@@ -57,8 +52,7 @@ run_case() {
     ./bin/apisix init
     ./bin/apisix init_etcd
 
-    git submodule update --init --recursive
-    FLUSH_ETCD=1 prove -I../test-nginx/lib -I./ -r -s t/demo
+    FLUSH_ETCD=1 prove -I./ t/plugin/saml-auth.t
 }
 
 # =======================================
@@ -81,7 +75,7 @@ run_case)
     run_case "$@"
     ;;
 *)
-    func_echo_error_status "Unknown method: ${case_opt}"
+    echo "Unknown method: ${case_opt}"
     exit 1
     ;;
 esac

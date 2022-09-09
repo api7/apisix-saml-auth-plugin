@@ -1,0 +1,24 @@
+diff --git a/conf/config-default.yaml b/conf/config-default.yaml
+index 7795d817..20717cd4 100755
+--- a/conf/config-default.yaml
++++ b/conf/config-default.yaml
+@@ -415,6 +416,7 @@ plugins:                          # plugin list (sorted by priority)
+   - uri-blocker                    # priority: 2900
+   - request-validation             # priority: 2800
+   - openid-connect                 # priority: 2599
++  - saml-auth                      # priority: 2598
+   - authz-casbin                   # priority: 2560
+   - authz-casdoor                  # priority: 2559
+   - wolf-rbac                      # priority: 2555
+diff --git a/t/APISIX.pm b/t/APISIX.pm
+index 999bcd8a..84c9d909 100644
+--- a/t/APISIX.pm
++++ b/t/APISIX.pm
+@@ -508,6 +512,7 @@ _EOC_
+     lua_shared_dict tars 1m;
+     lua_shared_dict xds-config 1m;
+     lua_shared_dict xds-config-version 1m;
++    lua_shared_dict saml_sessions 10m;
+ 
+     proxy_ssl_name \$upstream_host;
+     proxy_ssl_server_name on;
