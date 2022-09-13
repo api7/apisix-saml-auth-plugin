@@ -71,7 +71,7 @@ function _M.rewrite(conf, ctx)
         })
         if err then
             core.log.error("saml init: ", err)
-            return 503
+            return 503, {message = "saml init failed"}
         end
         is_resty_saml_init = true
     end
@@ -81,7 +81,7 @@ function _M.rewrite(conf, ctx)
     local saml = core.lrucache.plugin_ctx(lrucache, ctx, nil, resty_saml.new, conf)
     if not saml then
         core.log.error("saml new failed")
-        return 500
+        return 500, {message = "create saml object failed"}
     end
 
     local data = saml:authenticate()

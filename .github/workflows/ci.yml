@@ -49,6 +49,11 @@ jobs:
           sudo ./ci/${{ matrix.job_name }}_runner.sh do_install
         working-directory: workbench
 
+      - name: Install saml-auth related dependencies
+        run: |
+          sudo ./ci/utils/linux-common-runnner.sh install_deps
+        working-directory: workbench
+
       - name: Run test case
         run: |
           sudo ./ci/utils/linux-common-runnner.sh run_case

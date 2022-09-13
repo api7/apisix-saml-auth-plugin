@@ -45,12 +45,7 @@ install_module() {
 }
 
 
-run_case() {
-    export_or_prefix
-
-    ./bin/apisix init
-    ./bin/apisix init_etcd
-
+install_deps() {
     apt -y install libxml2-dev libxslt-dev openresty-openssl111-dev
     luarocks config variables.OPENSSL_DIR /usr/local/openresty/openssl111;
     luarocks install lua-resty-saml 0.2.2 --tree deps --local
@@ -67,6 +62,14 @@ run_case() {
     docker cp jq keycloak:/usr/bin/
     docker cp ci/kcadm_configure_saml.sh keycloak:/tmp/
     docker exec keycloak bash /tmp/kcadm_configure_saml.sh
+}
+
+
+run_case() {
+    export_or_prefix
+
+    ./bin/apisix init
+    ./bin/apisix init_etcd
 
     FLUSH_ETCD=1 prove -I./ t/plugin/saml-auth.t
 }
@@ -86,6 +89,9 @@ patch_apisix_code)
     ;;
 install_module)
     install_module "$@"
+    ;;
+install_deps)
+    install_deps "$@"
     ;;
 run_case)
     run_case "$@"
