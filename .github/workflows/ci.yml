@@ -51,22 +51,5 @@ jobs:
 
       - name: Run test case
         run: |
-          sudo apt -y install libxml2-dev libxslt-dev openresty-openssl111-dev
-          sudo luarocks config variables.OPENSSL_DIR /usr/local/openresty/openssl111;
-          sudo luarocks install lua-resty-saml 0.2.2 --tree deps --local
-
-          # run keycloak for saml test
-          sudo docker run --rm --name keycloak -d -p 8080:8080 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin quay.io/keycloak/keycloak:18.0.2 start-dev
-
-          # wait for keycloak ready
-          bash -c 'while true; do curl -s localhost:8080 &>/dev/null; ret=$?; [[ $ret -eq 0 ]] && break; sleep 3; done'
-
-          # configure keycloak for test
-          sudo wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -O jq
-          sudo chmod +x jq
-          sudo docker cp jq keycloak:/usr/bin/
-          sudo docker cp ci/kcadm_configure_saml.sh keycloak:/tmp/
-          sudo docker exec keycloak bash /tmp/kcadm_configure_saml.sh
-
           sudo ./ci/utils/linux-common-runnner.sh run_case
         working-directory: workbench

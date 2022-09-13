@@ -26,8 +26,7 @@ get_apisix_code() {
 patch_apisix_code(){
     # ${1} apisix home dir
     VAR_APISIX_HOME="${VAR_CUR_HOME}/${1:-workbench}"
-
-    (cd $VAR_APISIX_HOME; patch -p1 < $VAR_CUR_HOME/ci/saml-auth.patch)
+    # no-op
 }
 
 
@@ -51,6 +50,23 @@ run_case() {
 
     ./bin/apisix init
     ./bin/apisix init_etcd
+
+    apt -y install libxml2-dev libxslt-dev openresty-openssl111-dev
+    luarocks config variables.OPENSSL_DIR /usr/local/openresty/openssl111;
+    luarocks install lua-resty-saml 0.2.2 --tree deps --local
+
+    # run keycloak for saml test
+    docker run --rm --name keycloak -d -p 8080:8080 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin quay.io/keycloak/keycloak:18.0.2 start-dev
+
+    # wait for keycloak ready
+    bash -c 'while true; do curl -s localhost:8080 &>/dev/null; ret=$?; [[ $ret -eq 0 ]] && break; sleep 3; done'
+
+    # configure keycloak for test
+    wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -O jq
+    chmod +x jq
+    docker cp jq keycloak:/usr/bin/
+    docker cp ci/kcadm_configure_saml.sh keycloak:/tmp/
+    docker exec keycloak bash /tmp/kcadm_configure_saml.sh
 
     FLUSH_ETCD=1 prove -I./ t/plugin/saml-auth.t
 }

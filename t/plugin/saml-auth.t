@@ -25,12 +25,28 @@ no_shuffle();
 add_block_preprocessor(sub {
     my ($block) = @_;
 
-    if ((!defined $block->error_log) && (!defined $block->no_error_log)) {
-        $block->set_value("no_error_log", "[error]");
-    }
+    # setup default conf.yaml
+    my $extra_yaml_config = $block->extra_yaml_config // '';
+    $extra_yaml_config .= <<_EOC_;
+plugins:
+  - saml-auth                      # priority: 2598
+_EOC_
+
+    $block->set_value("extra_yaml_config", $extra_yaml_config);
+
+    my $http_config = $block->http_config // '';
+    $http_config .= <<_EOC_;
+    lua_shared_dict saml_sessions 10m;
+_EOC_
+
+    $block->set_value("http_config", $http_config);
 
     if (!defined $block->request) {
         $block->set_value("request", "GET /t");
+    }
+
+    if ((!defined $block->error_log) && (!defined $block->no_error_log)) {
+        $block->set_value("no_error_log", "[error]");
     }
 });
 
