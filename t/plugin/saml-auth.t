@@ -308,6 +308,6 @@ passed
             local password = "test"
 
             local res = kc.login_keycloak(uri .. path, username, password)
-            assert(res.status ~= 200)
+            assert(res == nil)
         }
     }
