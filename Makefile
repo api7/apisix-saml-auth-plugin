@@ -4,21 +4,9 @@
 SHELL := /bin/bash -o pipefail
 
 # Project basic setting
-project_name      ?= apisix-plugin-template
+project_name      ?= apisix-saml-auth-plugin
 project_version   ?= 0.0.1
 project_ci_runner ?= $(CURDIR)/ci/utils/linux-common-runnner.sh
-
-
-# Hyper-converged Infrastructure
-ENV_OS_NAME          ?= $(shell uname -s | tr '[:upper:]' '[:lower:]')
-ENV_HELP_PREFIX_SIZE ?= 15
-ENV_HELP_AWK_RULE    ?= '{ if(match($$0, /^\s*\#{3}\s*([^:]+)\s*:\s*(.*)$$/, res)){ printf("    make %-$(ENV_HELP_PREFIX_SIZE)s : %-10s\n", res[1], res[2]) } }'
-
-# ENV patch for darwin
-ifeq ($(ENV_OS_NAME), darwin)
-	ENV_HELP_AWK_RULE := '{ if(match($$0, /^\#{3}([^:]+):(.*)$$/)){ split($$0, res, ":"); gsub(/^\#{3}[ ]*/, "", res[1]); _desc=$$0; gsub(/^\#{3}([^:]+):[ \t]*/, "", _desc); printf("    make %-$(ENV_HELP_PREFIX_SIZE)s : %-10s\n", res[1], _desc) } }'
-endif
-
 
 # Makefile basic extension function
 _color_red    =\E[1;31m
@@ -50,16 +38,16 @@ endef
 
 
 # Makefile target
-### help : Show Makefile rules
+### help: Show Makefile rules
 .PHONY: help
 help:
 	@$(call func_echo_success_status, "Makefile rules:")
 	@echo
-	@awk $(ENV_HELP_AWK_RULE) Makefile
+	@grep -E '^### [-A-Za-z0-9_]+:' Makefile | sed 's/###/   /'
 	@echo
 
 
-### init_apisix : Fetch apisix code
+### init_apisix: Fetch apisix code
 .PHONY: init_apisix
 init_apisix:
 	@$(call func_echo_status, "$@ -> [ Start ]")
@@ -67,7 +55,7 @@ init_apisix:
 	@$(call func_echo_success_status, "$@ -> [ Done ]")
 
 
-### patch_apisix : Patch apisix code
+### patch_apisix: Patch apisix code
 .PHONY: patch_apisix
 patch_apisix:
 	@$(call func_echo_status, "$@ -> [ Start ]")
@@ -75,7 +63,7 @@ patch_apisix:
 	@$(call func_echo_success_status, "$@ -> [ Done ]")
 
 
-### install : Install custom plugin
+### install: Install custom plugin
 .PHONY: install
 install:
 	@$(call func_echo_status, "$@ -> [ Start ]")

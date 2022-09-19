@@ -2,10 +2,7 @@
 
 set -exuo pipefail
 
-VAR_CUR_PATH="$(cd $(dirname ${0}); pwd)"
 VAR_CUR_HOME="$(cd $(dirname ${0})/../..; pwd)"
-
-source "${VAR_CUR_PATH}/linux-common.sh"
 
 # =======================================
 # Linux common config
@@ -19,7 +16,7 @@ export_or_prefix() {
 get_apisix_code() {
     # ${1} branch name
     # ${2} checkout path
-    git_branch=${1:-release/2.12}
+    git_branch=${1:-master}
     git_checkout_path=${2:-workbench}
     git clone --depth 1 --recursive https://github.com/apache/apisix.git \
         -b "${git_branch}" "${git_checkout_path}" && cd "${git_checkout_path}" || exit 1
@@ -29,10 +26,7 @@ get_apisix_code() {
 patch_apisix_code(){
     # ${1} apisix home dir
     VAR_APISIX_HOME="${VAR_CUR_HOME}/${1:-workbench}"
-
-    sed -ri -e "/make\s+ci-env-up/d" \
-      -e "/linux-ci-init-service.sh/d" \
-      "${VAR_APISIX_HOME}/ci/linux_openresty_common_runner.sh"
+    # no-op
 }
 
 
@@ -51,14 +45,33 @@ install_module() {
 }
 
 
+install_deps() {
+    apt -y install libxml2-dev libxslt-dev openresty-openssl111-dev
+    luarocks config variables.OPENSSL_DIR /usr/local/openresty/openssl111;
+    luarocks install lua-resty-saml 0.2.2 --tree deps --local
+
+    # run keycloak for saml test
+    docker run --rm --name keycloak -d -p 8080:8080 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin quay.io/keycloak/keycloak:18.0.2 start-dev
+
+    # wait for keycloak ready
+    bash -c 'while true; do curl -s localhost:8080 &>/dev/null; ret=$?; [[ $ret -eq 0 ]] && break; sleep 3; done'
+
+    # configure keycloak for test
+    wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -O jq
+    chmod +x jq
+    docker cp jq keycloak:/usr/bin/
+    docker cp ci/kcadm_configure_saml.sh keycloak:/tmp/
+    docker exec keycloak bash /tmp/kcadm_configure_saml.sh
+}
+
+
 run_case() {
     export_or_prefix
 
     ./bin/apisix init
     ./bin/apisix init_etcd
 
-    git submodule update --init --recursive
-    FLUSH_ETCD=1 prove -I../test-nginx/lib -I./ -r -s t/demo
+    FLUSH_ETCD=1 prove -I./ t/plugin/saml-auth.t
 }
 
 # =======================================
@@ -77,11 +90,14 @@ patch_apisix_code)
 install_module)
     install_module "$@"
     ;;
+install_deps)
+    install_deps "$@"
+    ;;
 run_case)
     run_case "$@"
     ;;
 *)
-    func_echo_error_status "Unknown method: ${case_opt}"
+    echo "Unknown method: ${case_opt}"
     exit 1
     ;;
 esac

@@ -1,106 +1,123 @@
-# apisix-plugin-demo
+---
+title: saml-auth
+keywords:
+  - APISIX
+  - Plugin
+  - SAML AUTH
+  - saml-auth
+description: This document contains information about the Apache APISIX saml-auth Plugin.
+---
 
-[![Build Status][badge-action-img]][badge-action-url]
+<!--
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+-->
 
-This repository contains a basic [Apache APISIX][apisix] plugin template to help you
-get started with Apache APISIX plugin development.
+## Description
 
-> This template was designed to work with the [GitHub Action][github-actions] development environments.
+The `saml-auth` Plugin can be used to access SAML (Security Assertion Markup Language 2.0) IdP (Identity Provider)
+to do authentication, from the SP (service provider) perspective.
 
-## Table of contents
-- [Getting started](#getting-started)
-- [Plugin template structure](#plugin-template-structure)
-- [Sample Code](#sample-code)
-- [Testing](#testing)
-  - [Continuous integration](#continuous-integration)
-- [Useful links](#useful-links)
+## Attributes
 
-## Getting Started
-> Before we dive into plugin development and everything related to it,
-> a brief look at the [GitHub Template][github-public-template] is in order
+| Name      | Type | Required      | Description |
+| ----------- | ----------- | ----------- | ----------- |
+| `sp_issuer`      | string       | True      | SP name to access IdP.       |
+| `idp_uri`      | string       | True      | URI of IdP.       |
+| `idp_cert`      | string       | True      | IdP Certificate, used to verify saml response.       |
+| `login_callback_uri`      | string       | True      | redirect uri used to callback the SP from IdP after login.       |
+| `logout_uri`      | string       | True      | logout uri to trigger logout.       |
+| `logout_callback_uri`      | string       | True      | redirect uri used to callback the SP from IdP after logout.       |
+| `logout_redirect_uri`      | string       | True      | redirect uri after successful logout.       |
+| `sp_cert`      | string       | True      | SP Certificate, used to sign the saml request.       |
+| `sp_private_key`      | string       | True      | SP private key.       |
 
-All you need to do is click the [`Use this template`][apisix-plugin-use-template] button (you **<ins>must be logged</ins>** in with your GitHub account).
+## Enabling the Plugin
 
-After using the template to create your own blank custom plugin project, the project is ready to be cloned to your local environment and development.
+You can enable the Plugin on a specific Route as shown below:
 
-[Back to TOC][TOC]
+```shell
+curl http://127.0.0.1:9180/apisix/admin/routes/test_saml_auth -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
+{
+    "methods": ["GET"],
+    "uri": "/anything/*",
+    "plugins": {
+          "saml-auth": {
+            "idp_cert": "-----BEGIN CERTIFICATE-----\n...\n...\n-----END CERTIFICATE-----",
+            "login_callback_uri": "/anything/login_callback",
+            "sp_private_key": "-----BEGIN PRIVATE KEY-----\n...\n...\n-----END PRIVATE KEY-----",
+            "logout_callback_uri": "/anything/logout_callback",
+            "logout_uri": "/anything/logout",
+            "logout_redirect_uri": "/anything/logout_ok",
+            "sp_cert": "-----BEGIN CERTIFICATE-----\n...\n...\n-----END CERTIFICATE-----",
+            "sp_issuer": "sp",
+            "idp_uri": "http://127.0.0.1:8080/realms/test/protocol/saml"
+          }
 
-## Plugin template structure
+    },
+    "upstream": {
+        "type": "roundrobin",
+        "nodes": {
+            "httpbin.org": 1
+        }
+    }
+}'
+
 ```
-.
-├── .github/         GitHub Actions workflows and Dependabot configuration files
-├── apisix           All files in this folder will be copied and overwrite the original APISIX
-│   └── plugins/     Plugin source
-├── ci               All files in this folder will be copied and overwrite the original APISIX
-│   └── utils/       CI utils script folder
-├── t/               Test case folder
-├── LICENSE
-├── Makefile
-└── README.md        README
+
+## Configuration description
+
+Once you have enabled the Plugin, a new user visiting this Route would first be processed by the `saml-auth` Plugin.
+If no login session exists, the user would be redirected to the login page of `idp_uri`.
+
+After successfully logging in from IdP, IdP will redirect this user to the `login_callback_uri` with
+GET parameters SAML Assertion specified. If the assertion gets verified, the login session would be created.
+
+This process is only done once and subsequent requests are left uninterrupted.
+Once this is done, the user is redirected to the original URL they wanted to visit.
+
+Later, the user could visit `logout_uri` to start logout process. The user would be redirected to `idp_uri` to do logout.
+
+After successfully logging out from IdP, the user would be redirected to `logout_callback_uri` and clear the session there.
+
+Finally, the user would be redirected to `logout_redirect_uri`.
+
+Note that, `login_callback_uri`, `logout_callback_uri`, `logout_uri` and `logout_redirect_uri` should be
+either full qualified address (e.g. `http://127.0.0.1:9080/anything/logout`),
+or path only (e.g. `/logout`), but it is recommended to be path only to keep consistent.
+
+These uris need to be captured by the route where the current APISIX is located.
+For example, if the `uri` of the current route is `/api/v1/*`, `login_callback_uri` can be filled in as `/api/v1/login_callback`.
+
+## Disable Plugin
+
+To disable the `saml-auth` Plugin, you can delete the corresponding JSON configuration from the Plugin configuration. APISIX will automatically reload and you do not have to restart for this to take effect.
+
+```shell
+curl http://127.0.0.1:9180/apisix/admin/routes/test_saml_auth  -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
+{
+    "methods": ["GET"],
+    "uri": "/anything/*",
+    "plugins": {},
+    "upstream": {
+        "type": "roundrobin",
+        "nodes": {
+            "httpbin.org:80": 1
+        }
+    }
+}'
 ```
-[Back to TOC][TOC]
-
-## Sample Code
-The prepared plugin template provides as little code as possible because it is impossible for a general scaffold to fulfill all the specific requirements for all types of plugins.
-Therefore, the template contains only the following files:
-
-```
-.
-├── apisix
-│   └── plugins/
-│       └── demo.lua
-└── t
-    └── demo/
-        └── demo.t      
-```
-
-To start with the actual implementation, you may check our [APISIX Plugin Deveolpment][apisix-plugin-develop],
-which contains an introduction to the essential parts of the plugin development.
-
-[Back to TOC][TOC]
-
-## Testing
-[Testing plugins][apisix-testing-framework] is an essential part of the plugin development to make sure that everything works as expected.
-
-### Continuous integration
-[Continuous integration][continuous-integration] (CI) depends on [GitHub Actions][github-actions], a set of workflows that make it possible to automate your testing process.
-Thanks to such automation, you can delegate the testing and verification phases to the CI and instead focus on development (and writing more tests).
-
-In the `.github/workflows` directory, you can find definitions for the following GitHub Actions workflows:
-
-- [CI](.github/workflows/ci.yml)
-  - Triggered on `push` and `pull_request` events.
-  - Run test case in [`t`](t) folder
-
-[Back to TOC][TOC]
-
-## Useful links
-- [Getting started with GitHub Public Template][github-public-template]
-- [What is APISIX Plugin][apisix-plugin]
-- [APISIX Architecture Design][apisix-architecture-design]
-- [APISIX Plugin Deveolpment][apisix-plugin-develop]
-- [APISIX Code Style][apisix-code-style]
-- [APISIX Debug Mode][apisix-debug-mode]
-- [APISIX Testing Framework][apisix-testing-framework]
-- [GitHub Actions][github-actions]
-
-[Back to TOC][TOC]
-
-[TOC]: #table-of-contents
-
-[badge-action-url]: https://github.com/api7/apisix-plugin-template/actions
-[badge-action-img]: https://github.com/api7/apisix-plugin-template/actions/workflows/ci.yml/badge.svg
-
-[apisix]: https://github.com/apache/apisix
-[apisix-architecture-design]: https://apisix.apache.org/docs/apisix/architecture-design/apisix
-[apisix-code-style]: https://github.com/apache/apisix/blob/master/CODE_STYLE.md
-[apisix-debug-mode]: https://apisix.apache.org/docs/apisix/architecture-design/debug-mode
-[apisix-plugin]: https://apisix.apache.org/docs/apisix/architecture-design/plugin
-[apisix-plugin-develop]: https://apisix.apache.org/docs/apisix/plugin-develop
-[apisix-plugin-use-template]: https://github.com/api7/apisix-plugin-template/generate
-[apisix-testing-framework]: https://apisix.apache.org/docs/apisix/internal/testing-framework
-
-[continuous-integration]: https://en.wikipedia.org/wiki/Continuous_integration
-
-[github-actions]: https://help.github.com/en/actions
-[github-public-template]: https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template

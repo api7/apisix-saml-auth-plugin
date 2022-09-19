@@ -39,10 +39,6 @@ jobs:
           sudo make ci-env-up project_compose_ci=ci/pod/docker-compose.common.yml
         working-directory: workbench
 
-      - name: Linux Get dependencies
-        run: |
-          sudo apt install -y cpanminus build-essential libncurses5-dev libreadline-dev libssl-dev perl libpcre3 libpcre3-dev libldap2-dev
-
       - name: Linux Before install
         run: |
           sudo ./ci/${{ matrix.job_name }}_runner.sh before_install
@@ -51,6 +47,11 @@ jobs:
       - name: Linux Do install
         run: |
           sudo ./ci/${{ matrix.job_name }}_runner.sh do_install
+        working-directory: workbench
+
+      - name: Install saml-auth related dependencies
+        run: |
+          sudo ./ci/utils/linux-common-runnner.sh install_deps
         working-directory: workbench
 
       - name: Run test case
